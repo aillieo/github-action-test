@@ -9,7 +9,7 @@ env:
   PKG_ROOT_DIR: Assets/TestPackage
   SAMPLES_DIR: Samples
   DOCUMENTATION_DIR: Documentation
-  DOC_FILES: README.md CHANGELOG.md LICENSE.md Third\ Party\ Notice.md
+  DOC_FILES: README.md,CHANGELOG.md,LICENSE.md,Third Party Notice.md
 
 jobs:
   sync_upm:
@@ -33,7 +33,8 @@ jobs:
         git subtree split -P "$PKG_ROOT_DIR" -b $UPM_BRANCH
         git checkout $UPM_BRANCH
         
-        for file in $DOC_FILES; do
+        IFS=','; files=($DOC_FILES); unset IFS;
+        for file in "${files[@]}"; do
           git checkout $MAIN_BRANCH $file &> /dev/null || echo $file is not found
         done
 
