@@ -1,0 +1,62 @@
+name: sync_upm
+
+on:
+  workflow_dispatch:
+
+env:
+  MASTER_BRANCH: master
+  UPM_BRANCH: upm
+  PKG_ROOT_DIR: Assets/TestPackage
+  SAMPLES_DIR: Samples
+  DOCUMENTATION_DIR: Documentation
+  DOC_FILES: README.md,CHANGELOG.md,LICENSE.md,Third Party Notice.md
+
+jobs:
+  sync_upm:
+    name: sync_upm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: Config git 
+      run: |
+        git config --global user.name 'github-bot'
+        git config --global user.email 'github-bot@users.noreply.github.com'
+    
+    - name: Create upm branches
+      run: |
+        git branch -D $UPM_BRANCH &> /dev/null || echo $UPM_BRANCH branch is not found
+        git subtree split -P "$PKG_ROOT_DIR" -b $UPM_BRANCH
+        git checkout $UPM_BRANCH
+        
+        IFS=','; files=($DOC_FILES); unset IFS;
+        for file in "${files[@]}"; do
+          git checkout $MAIN_BRANCH $file &> /dev/null || echo $file is not found
+        done
+
+        git mv $SAMPLES_DIR Samples~ &> /dev/null && rm Samples.meta || echo $SAMPLES_DIR is not found
+
+        git mv $DOCUMENTATION_DIR Documentation~ &> /dev/null || echo $DOCUMENTATION_DIR is not found
+        # rm Documentation.meta
+
+    - name: Find tag name
+      id: tag
+      run: |
+        # echo sed 's/.*"version": "\(.*\)".*/\1/;t;d' ./package.json
+        echo version=$(sed 's/.*"version": "\(.*\)".*/\1/;t;d' ./package.json) >> $GITHUB_OUTPUT
+
+    - name: Create upm git tag
+      run: |
+        # git commit -am "release $TAG."
+        git tag $TAG $UPM_BRANCH
+        git push -f origin $UPM_BRANCH --tags
+
+        git checkout -b $UPM_BRANCH@$TAG
+        git push -f origin $UPM_BRANCH@$TAG
+      env:
+        TAG: v${{ steps.tag.outputs.version }}
+        GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
